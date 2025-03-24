@@ -1,94 +1,59 @@
-# Obsidian Sample Plugin
+四柱选择器是一个Obsidian插件，可以帮助您在笔记中插入和显示传统的中国四柱八字记法。
+主要功能
 
-This is a sample plugin for Obsidian (https://obsidian.md).
+交互式选择器：为每个柱子（年、月、日、时）选择合适的天干地支组合
+验证功能：确保您的选择遵循传统规则（例如，阳干配阳支，阴干配阴支）
+颜色编码：根据五行关联，以适当的颜色显示元素：
 
-This project uses TypeScript to provide type checking and documentation.
-The repo depends on the latest plugin API (obsidian.d.ts) in TypeScript Definition format, which contains TSDoc comments describing what it does.
+木：绿色 - 对应 甲、乙、寅、卯
+火：红色 - 对应 丙、丁、巳、午
+土：棕色 - 对应 戊、己、辰、戌、丑、未
+金：金黄色 - 对应 庚、辛、申、酉
+水：蓝色 - 对应 壬、癸、亥、子
 
-This sample plugin demonstrates some of the basic functionality the plugin API can do.
-- Adds a ribbon icon, which shows a Notice when clicked.
-- Adds a command "Open Sample Modal" which opens a Modal.
-- Adds a plugin setting tab to the settings page.
-- Registers a global click event and output 'click' to the console.
-- Registers a global interval which logs 'setInterval' to the console.
 
-## First time developing plugins?
+多种显示模式：可以插入为交互式选择器或格式化文本
+数据存储：将您的选择保存在localStorage或笔记的frontmatter中
+自定义设置：在设置中调整每种元素类型的颜色
 
-Quick starting guide for new plugin devs:
+使用方法
+有几种方式可以使用四柱选择器：
 
-- Check if [someone already developed a plugin for what you want](https://obsidian.md/plugins)! There might be an existing plugin similar enough that you can partner up with.
-- Make a copy of this repo as a template with the "Use this template" button (login to GitHub if you don't see it).
-- Clone your repo to a local development folder. For convenience, you can place this folder in your `.obsidian/plugins/your-plugin-name` folder.
-- Install NodeJS, then run `npm i` in the command line under your repo folder.
-- Run `npm run dev` to compile your plugin from `main.ts` to `main.js`.
-- Make changes to `main.ts` (or create new `.ts` files). Those changes should be automatically compiled into `main.js`.
-- Reload Obsidian to load the new version of your plugin.
-- Enable plugin in settings window.
-- For updates to the Obsidian API run `npm update` in the command line under your repo folder.
+侧边栏图标：点击左侧边栏中的四柱图标
+命令面板：使用"打开四柱选择器"命令
+插入到笔记：使用"在当前位置插入四柱选择器"命令
+## 设置选项
 
-## Releasing new releases
+- **在编辑器中显示**：切换选择器是否在编辑模式中显示
+- **保存到Frontmatter**：可选择将您的选择保存在笔记的frontmatter中
+- **以文本形式插入**：选择交互式选择器或文本显示方式
+- **颜色自定义**：修改每种五行元素的颜色
 
-- Update your `manifest.json` with your new version number, such as `1.0.1`, and the minimum Obsidian version required for your latest release.
-- Update your `versions.json` file with `"new-plugin-version": "minimum-obsidian-version"` so older versions of Obsidian can download an older version of your plugin that's compatible.
-- Create new GitHub release using your new version number as the "Tag version". Use the exact version number, don't include a prefix `v`. See here for an example: https://github.com/obsidianmd/obsidian-sample-plugin/releases
-- Upload the files `manifest.json`, `main.js`, `styles.css` as binary attachments. Note: The manifest.json file must be in two places, first the root path of your repository and also in the release.
-- Publish the release.
+## 四柱逻辑
 
-> You can simplify the version bump process by running `npm version patch`, `npm version minor` or `npm version major` after updating `minAppVersion` manually in `manifest.json`.
-> The command will bump version in `manifest.json` and `package.json`, and add the entry for the new version to `versions.json`
+此插件强制执行传统的四柱排列规则：
+- 阳干（甲、丙、戊、庚、壬）必须与阳支（子、寅、辰、午、申、戌）配对
+- 阴干（乙、丁、己、辛、癸）必须与阴支（丑、卯、巳、未、酉、亥）配对
+- 月柱的天干取决于年柱的天干
+- 时柱的天干取决于日柱的天干
 
-## Adding your plugin to the community plugin list
+## 安装方法
 
-- Check the [plugin guidelines](https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines).
-- Publish an initial version.
-- Make sure you have a `README.md` file in the root of your repo.
-- Make a pull request at https://github.com/obsidianmd/obsidian-releases to add your plugin.
+1. 在Obsidian中，转到设置 > 第三方插件
+2. 关闭安全模式
+3. 点击"浏览"并搜索"四柱选择器"
+4. 安装插件并启用
 
-## How to use
+## 手动安装
 
-- Clone this repo.
-- Make sure your NodeJS is at least v16 (`node --version`).
-- `npm i` or `yarn` to install dependencies.
-- `npm run dev` to start compilation in watch mode.
+1. 下载最新版本
+2. 将文件解压到您的Obsidian插件文件夹：`{vault}/.obsidian/plugins/four-pillars-selector/`
+3. 重新加载Obsidian并在设置 > 第三方插件中启用插件
 
-## Manually installing the plugin
+## 支持与贡献
 
-- Copy over `main.js`, `styles.css`, `manifest.json` to your vault `VaultFolder/.obsidian/plugins/your-plugin-id/`.
+如果您遇到任何问题或有改进建议，请在GitHub仓库上提交issue。
 
-## Improve code quality with eslint (optional)
-- [ESLint](https://eslint.org/) is a tool that analyzes your code to quickly find problems. You can run ESLint against your plugin to find common bugs and ways to improve your code. 
-- To use eslint with this project, make sure to install eslint from terminal:
-  - `npm install -g eslint`
-- To use eslint to analyze this project use this command:
-  - `eslint main.ts`
-  - eslint will then create a report with suggestions for code improvement by file and line number.
-- If your source code is in a folder, such as `src`, you can use eslint with this command to analyze all files in that folder:
-  - `eslint .\src\`
+## 许可证
 
-## Funding URL
-
-You can include funding URLs where people who use your plugin can financially support it.
-
-The simple way is to set the `fundingUrl` field to your link in your `manifest.json` file:
-
-```json
-{
-    "fundingUrl": "https://buymeacoffee.com"
-}
-```
-
-If you have multiple URLs, you can also do:
-
-```json
-{
-    "fundingUrl": {
-        "Buy Me a Coffee": "https://buymeacoffee.com",
-        "GitHub Sponsor": "https://github.com/sponsors",
-        "Patreon": "https://www.patreon.com/"
-    }
-}
-```
-
-## API Documentation
-
-See https://github.com/obsidianmd/obsidian-api
+[MIT许可证](LICENSE)
