@@ -534,355 +534,596 @@ function createFourPillarsUI(containerEl: HTMLElement, app: App, plugin: FourPil
 				   DataPersistence.loadFromHiddenDiv(containerEl);
 		}
 	};
-	const validateFourPillars = (pillars: Record<string, {天干: string, 地支: string}>) => {
-		// 结果对象
-		const result = {
-			isValid: true,
-			errorPillars: [] as string[],
-			errorDetails: [] as string[],
-			errorMessage: ""
-		};
-		
-		// 检查是否有未完成的组合
-		const incomplete: string[] = [];
-		positions.forEach(pos => {
-			const 天干 = pillars[pos]?.天干;
-			const 地支 = pillars[pos]?.地支;
+		const validateFourPillars = (pillars: Record<string, {天干: string, 地支: string}>) => {
+			// 结果对象
+			const result = {
+				isValid: true,
+				errorPillars: [] as string[],
+				errorDetails: [] as string[],
+				errorMessage: ""
+			};
 			
-			if ((!天干 && 地支) || (天干 && !地支)) {
-				incomplete.push(pos);
-				result.isValid = false;
+			// 检查是否有未完成的组合
+			const incomplete: string[] = [];
+			positions.forEach(pos => {
+				const 天干 = pillars[pos]?.天干;
+				const 地支 = pillars[pos]?.地支;
+				
+				if ((!天干 && 地支) || (天干 && !地支)) {
+					incomplete.push(pos);
+					result.isValid = false;
+				}
+			});
+			
+			if (incomplete.length > 0) {
+				result.errorMessage = `以下位置的干支组合不完整: ${incomplete.join('、')}柱`;
+				return result;
 			}
-		});
-		
-		if (incomplete.length > 0) {
-			result.errorMessage = `以下位置的干支组合不完整: ${incomplete.join('、')}柱`;
+			
+			// 阳干阳支，阴干阴支的规则
+			const 阳干 = ['甲', '丙', '戊', '庚', '壬'];
+			const 阳支 = ['子', '寅', '辰', '午', '申', '戌'];
+			
+			// 检查每一柱的阴阳配对
+			positions.forEach(pos => {
+				const 天干 = pillars[pos].天干;
+				const 地支 = pillars[pos].地支;
+				
+				if (天干 && 地支) {
+					const 天干是阳 = 阳干.includes(天干);
+					const 地支是阳 = 阳支.includes(地支);
+					
+					if (天干是阳 !== 地支是阳) {
+						result.isValid = false;
+						result.errorPillars.push(pos);
+						result.errorDetails.push(`${pos}柱：${天干}${地支} - ${天干是阳 ? '阳' : '阴'}干不能配${地支是阳 ? '阳' : '阴'}支`);
+					}
+				}
+			});
+			
+			// 检查年柱和月柱的关系
+			if (pillars["年"].天干 && pillars["月"].天干 && pillars["月"].地支) {
+				const yearGanIndex = 天干.indexOf(pillars["年"].天干);
+				const monthGanIndex = 天干.indexOf(pillars["月"].天干);
+				const monthZhiIndex = 地支.indexOf(pillars["月"].地支);
+				const yearGanGroup = yearGanIndex % 5; // 0-4分别代表甲己、乙庚、丙辛、丁壬、戊癸
+				
+				// 根据年干确定正月(寅月)的天干
+				// 甲己年起丙寅月，乙庚年起戊寅月，丙辛年起庚寅月，丁壬年起壬寅月，戊癸年起甲寅月
+				const baseMonthGan = [2, 4, 6, 8, 0]; // 对应丙、戊、庚、壬、甲
+				const startGan = baseMonthGan[yearGanGroup];
+				
+				if (monthZhiIndex !== -1) {
+					// 寅月在地支中索引为2，作为正月(农历一月)
+					// 计算当前月支对应的正确天干
+					const monthOffset = (monthZhiIndex - 2 + 12) % 12; // 相对于寅月的偏移
+					const correctMonthGanIndex = (startGan + monthOffset) % 10;
+					
+					if (monthGanIndex !== correctMonthGanIndex) {
+						result.isValid = false;
+						if (!result.errorPillars.includes("月")) {
+							result.errorPillars.push("月");
+						}
+						result.errorDetails.push(`月柱：${pillars["月"].天干}${pillars["月"].地支} - 与年干${pillars["年"].天干}不匹配，应为${天干[correctMonthGanIndex]}${pillars["月"].地支}`);
+					}
+				}
+			}
+			
+			// 检查日柱和时柱的关系
+			if (pillars["日"].天干 && pillars["时"].天干 && pillars["时"].地支) {
+				const dayGanIndex = 天干.indexOf(pillars["日"].天干);
+				const hourGanIndex = 天干.indexOf(pillars["时"].天干);
+				const hourZhiIndex = 地支.indexOf(pillars["时"].地支);
+				
+				// 根据日干确定子时（第一个时辰）的天干
+				// 甲己日起甲子时，乙庚日起丙子时，丙辛日起戊子时，丁壬日起庚子时，戊癸日起壬子时
+				const baseHourGan = [0, 2, 4, 6, 8]; // 对应甲、丙、戊、庚、壬
+				const dayGanGroup = dayGanIndex % 5;
+				const startGan = baseHourGan[dayGanGroup];
+				
+				// 计算正确的时干索引
+				const correctHourGanIndex = (startGan + hourZhiIndex) % 10;
+				
+				if (hourGanIndex !== correctHourGanIndex) {
+					result.isValid = false;
+					if (!result.errorPillars.includes("时")) {
+						result.errorPillars.push("时");
+					}
+					result.errorDetails.push(`时柱：${pillars["时"].天干}${pillars["时"].地支} - 与日干${pillars["日"].天干}不匹配，应为${天干[correctHourGanIndex]}${pillars["时"].地支}`);
+				}
+			}
+			
+			// 生成详细错误信息
+			if (!result.isValid) {
+				if (result.errorDetails.length > 0) {
+					result.errorMessage = `四柱组合不符合传统历法规则：\n${result.errorDetails.join('\n')}`;
+				} else {
+					result.errorMessage = `四柱组合不符合传统历法规则，请检查${result.errorPillars.join("、")}柱。`;
+				}
+			}
+			
+			return result;
+		};
+		// 下面的代码应该添加到FourPillarsPlugin类中或createFourPillarsUI函数中
+
+		// 首先添加一个函数，根据日干和时辰地支计算时干
+		function getHourGanFromDayGan(dayGan: string, hourZhi: string): string {
+			const 天干 = ["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"];
+			const 地支 = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"];
+			
+			// 获取日干和时辰地支的索引
+			const dayGanIndex = 天干.indexOf(dayGan);
+			const hourZhiIndex = 地支.indexOf(hourZhi);
+			
+			if (dayGanIndex === -1 || hourZhiIndex === -1) return "";
+			
+			// 根据口诀确定子时的起始天干
+			// 甲己起甲子, 乙庚起丙子, 丙辛起戊子, 丁壬起庚子, 戊癸起壬子
+			const startGanByDayGroup = [0, 2, 4, 6, 8]; // 对应于甲、丙、戊、庚、壬
+			const dayGanGroup = dayGanIndex % 5;
+			const hourStartGan = startGanByDayGroup[dayGanGroup];
+			
+			// 计算时干，每个时辰天干前进1位
+			const hourGanIndex = (hourStartGan + hourZhiIndex) % 10;
+			return 天干[hourGanIndex];
+		}
+
+		// 验证四柱组合的函数，也会尝试查找匹配的公元日期
+		async function validateAndFindDate(selections: Record<string, {天干: string, 地支: string}>) {
+			const TIAN_GAN = ["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"];
+			const DI_ZHI = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"];
+			
+			// 提取四柱
+			const yearGan = selections["年"].天干;
+			const yearZhi = selections["年"].地支;
+			const monthGan = selections["月"].天干;
+			const monthZhi = selections["月"].地支;
+			const dayGan = selections["日"].天干;
+			const dayZhi = selections["日"].地支;
+			const hourGan = selections["时"].天干;
+			const hourZhi = selections["时"].地支;
+			
+			// 返回结果对象
+			const result = {
+				isValid: true,
+				errorMessage: "",
+				errorDetails: [] as string[],
+				gregorianDate: null as any
+			};
+			
+			// 检查每一柱的阴阳配对
+			const 阳干 = ['甲', '丙', '戊', '庚', '壬'];
+			const 阳支 = ['子', '寅', '辰', '午', '申', '戌'];
+			
+			const positions = ['年', '月', '日', '时'];
+			positions.forEach(pos => {
+				const 干 = selections[pos].天干;
+				const 支 = selections[pos].地支;
+				
+				if (干 && 支) {
+					const 干是阳 = 阳干.includes(干);
+					const 支是阳 = 阳支.includes(支);
+					
+					if (干是阳 !== 支是阳) {
+						result.isValid = false;
+						result.errorDetails.push(`${pos}柱：${干}${支} - ${干是阳 ? '阳' : '阴'}干不能配${支是阳 ? '阳' : '阴'}支`);
+					}
+				}
+			});
+			
+			// 检查月干与年干的关系
+			if (yearGan && monthGan && monthZhi) {
+				const yearGanIndex = TIAN_GAN.indexOf(yearGan);
+				const yearGanGroup = yearGanIndex % 5; // 0-4分别代表甲己、乙庚、丙辛、丁壬、戊癸
+				
+				// 计算寅月(正月)的天干
+				const monthStartGan = [2, 4, 6, 8, 0]; // 甲己年丙寅月，乙庚年戊寅月，丙辛年庚寅月，丁壬年壬寅月，戊癸年甲寅月
+				const startGan = monthStartGan[yearGanGroup];
+				
+				// 计算各月的天干
+				const monthZhiIndex = DI_ZHI.indexOf(monthZhi);
+				// 寅月为第一个月，索引为2
+				const monthOffset = (monthZhiIndex - 2 + 12) % 12;
+				const expectedMonthGanIndex = (startGan + monthOffset) % 10;
+				
+				if (TIAN_GAN.indexOf(monthGan) !== expectedMonthGanIndex) {
+					result.isValid = false;
+					result.errorDetails.push(`月柱：${monthGan}${monthZhi} - 与年干${yearGan}不匹配，应为${TIAN_GAN[expectedMonthGanIndex]}${monthZhi}`);
+				}
+			}
+			
+			// 检查时干与日干的关系
+			if (dayGan && hourGan && hourZhi) {
+				const expectedHourGan = getHourGanFromDayGan(dayGan, hourZhi);
+				
+				if (hourGan !== expectedHourGan) {
+					result.isValid = false;
+					result.errorDetails.push(`时柱：${hourGan}${hourZhi} - 与日干${dayGan}不匹配，应为${expectedHourGan}${hourZhi}`);
+				}
+			}
+			
+			// 如果基本验证通过，尝试查找对应的公元日期
+			if (result.isValid) {
+				try {
+					// 定义搜索范围
+					const currentYear = new Date().getFullYear();
+					const startYear = Math.max(1900, currentYear - 10);
+					const endYear = Math.min(2100, currentYear + 10);
+					
+					// 检查是否有lunar-javascript库可用
+					if (typeof require === 'function') {
+						try {
+							// 尝试导入lunar-javascript库
+							const { Solar, Lunar } = require('lunar-javascript');
+							
+							// 搜索匹配的日期
+							let found = false;
+							let nearestDate = null;
+							let nearestDateDistance = Infinity;
+							
+							for (let year = startYear; year <= endYear; year++) {
+								// 根据年干支筛选
+								const yearStart = new Date(year, 0, 1);
+								const lunarYear = Lunar.fromDate(yearStart);
+								const yearInGanZhi = lunarYear.getYearInGanZhi();
+								
+								if (yearInGanZhi.charAt(0) !== yearGan || yearInGanZhi.charAt(1) !== yearZhi) continue;
+								
+								// 遍历该年的每一天
+								const yearEnd = new Date(year, 11, 31);
+								const oneDayMs = 24 * 60 * 60 * 1000;
+								
+								for (let d = yearStart.getTime(); d <= yearEnd.getTime(); d += oneDayMs) {
+									const date = new Date(d);
+									const lunarDate = Lunar.fromDate(date);
+									
+									// 检查月干支
+									// 注意：这里我们假设有能获取月干支的函数，实际上可能需要自己实现
+									const monthInGanZhi = getMonthGanZhi(lunarDate); // 这个函数需要实现
+									if (monthInGanZhi.charAt(0) !== monthGan || monthInGanZhi.charAt(1) !== monthZhi) continue;
+									
+									// 检查日干支
+									const dayInGanZhi = lunarDate.getDayInGanZhi();
+									if (dayInGanZhi.charAt(0) !== dayGan || dayInGanZhi.charAt(1) !== dayZhi) continue;
+									
+									// 检查时干支
+									// 需要考虑一天中不同时辰
+									for (let hour = 0; hour < 12; hour++) {
+										const hourZhiIndex = hour;
+										if (DI_ZHI[hourZhiIndex] !== hourZhi) continue;
+										
+										// 根据日干和时辰地支计算时干
+										const calculatedHourGan = getHourGanFromDayGan(dayGan, hourZhi);
+										if (calculatedHourGan !== hourGan) continue;
+										
+										// 找到匹配的日期和时辰
+										found = true;
+										
+										// 计算与当前日期的距离，记录最近的日期
+										const distance = Math.abs(Date.now() - date.getTime());
+										if (distance < nearestDateDistance) {
+											nearestDateDistance = distance;
+											
+											// 计算时辰对应的时间范围
+											const startHour = (hourZhiIndex * 2 - 1 + 24) % 24;
+											const endHour = (startHour + 1) % 24;
+											
+											nearestDate = {
+												year: date.getFullYear(),
+												month: date.getMonth() + 1,
+												day: date.getDate(),
+												hourRange: `${startHour.toString().padStart(2, '0')}:00-${endHour.toString().padStart(2, '0')}:59`
+											};
+										}
+									}
+								}
+							}
+							
+							if (found && nearestDate) {
+								result.gregorianDate = nearestDate;
+							} else {
+								result.isValid = false;
+								result.errorMessage = "无法找到匹配的公元日期（在1900-2100年范围内）";
+							}
+						} catch (e) {
+							console.error("使用lunar-javascript库失败:", e);
+							result.errorMessage = "查找公元日期失败 - 缺少必要的日期转换库";
+						}
+					} else {
+						result.errorMessage = "无法查找公元日期 - 缺少必要的日期转换库";
+					}
+				} catch (error) {
+					console.error("查找公元日期失败:", error);
+					result.errorMessage = "查找公元日期时出错: " + error.message;
+				}
+			}
+			
+			// 生成最终错误信息
+			if (!result.isValid && result.errorDetails.length > 0) {
+				result.errorMessage = `四柱组合不符合传统历法规则：\n${result.errorDetails.join('\n')}`;
+			}
+			
 			return result;
 		}
-		
-		// 阳干阳支，阴干阴支的规则
-		const 阳干 = ['甲', '丙', '戊', '庚', '壬'];
-		const 阳支 = ['子', '寅', '辰', '午', '申', '戌'];
-		
-		// 检查每一柱的阴阳配对
-		positions.forEach(pos => {
-			const 天干 = pillars[pos].天干;
-			const 地支 = pillars[pos].地支;
+
+		// 获取月干支的辅助函数（需要实现）
+		function getMonthGanZhi(lunar: any): string {
+			// 从lunar-javascript库获取年干和月支
+			const yearGan = lunar.getYearGan();
+			const monthZhi = lunar.getMonthZhi();
 			
-			if (天干 && 地支) {
-				const 天干是阳 = 阳干.includes(天干);
-				const 地支是阳 = 阳支.includes(地支);
-				
-				if (天干是阳 !== 地支是阳) {
-					result.isValid = false;
-					result.errorPillars.push(pos);
-					result.errorDetails.push(`${pos}柱：${天干}${地支} - ${天干是阳 ? '阳' : '阴'}干不能配${地支是阳 ? '阳' : '阴'}支`);
-				}
-			}
-		});
-		
-		// 检查年柱和月柱的关系
-		if (pillars["年"].天干 && pillars["月"].天干 && pillars["月"].地支) {
-			const yearGanIndex = 天干.indexOf(pillars["年"].天干);
-			const monthGanIndex = 天干.indexOf(pillars["月"].天干);
-			const monthZhiIndex = 地支.indexOf(pillars["月"].地支);
+			// 根据年干确定月干起点
+			const TIAN_GAN = ["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"];
+			const yearGanIndex = TIAN_GAN.indexOf(yearGan);
 			const yearGanGroup = yearGanIndex % 5; // 0-4分别代表甲己、乙庚、丙辛、丁壬、戊癸
 			
-			// 根据年干确定正月(寅月)的天干
-			// 甲己年起丙寅月，乙庚年起戊寅月，丙辛年起庚寅月，丁壬年起壬寅月，戊癸年起甲寅月
-			const baseMonthGan = [2, 4, 6, 8, 0]; // 对应丙、戊、庚、壬、甲
-			const startGan = baseMonthGan[yearGanGroup];
+			// 计算寅月(正月)的天干
+			const monthStartGan = [2, 4, 6, 8, 0]; // 甲己年丙寅月，乙庚年戊寅月，丙辛年庚寅月，丁壬年壬寅月，戊癸年甲寅月
+			const startGan = monthStartGan[yearGanGroup];
 			
-			if (monthZhiIndex !== -1) {
-				// 寅月在地支中索引为2，作为正月(农历一月)
-				// 计算当前月支对应的正确天干
-				const monthOffset = (monthZhiIndex - 2 + 12) % 12; // 相对于寅月的偏移
-				const correctMonthGanIndex = (startGan + monthOffset) % 10;
-				
-				if (monthGanIndex !== correctMonthGanIndex) {
-					result.isValid = false;
-					if (!result.errorPillars.includes("月")) {
-						result.errorPillars.push("月");
-					}
-					result.errorDetails.push(`月柱：${pillars["月"].天干}${pillars["月"].地支} - 与年干${pillars["年"].天干}不匹配，应为${天干[correctMonthGanIndex]}${pillars["月"].地支}`);
-				}
+			// 计算月干
+			const DI_ZHI = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"];
+			const monthZhiIndex = DI_ZHI.indexOf(monthZhi);
+			// 寅月为第一个月，索引为2
+			const monthOffset = (monthZhiIndex - 2 + 12) % 12;
+			const monthGanIndex = (startGan + monthOffset) % 10;
+			
+			return TIAN_GAN[monthGanIndex] + monthZhi;
+		}
+
+		// 获取时间范围的辅助函数
+		function getHourRange(hourZhi: string): string | null {
+			if (!hourZhi) return null;
+			
+			const zhiIndex = "子丑寅卯辰巳午未申酉戌亥".indexOf(hourZhi);
+			if (zhiIndex === -1) return null;
+			
+			// 计算时间范围
+			const startHour = (zhiIndex * 2 - 1 + 24) % 24;
+			const endHour = (startHour + 1) % 24;
+			
+			// 格式化为字符串
+			return `${startHour.toString().padStart(2, '0')}:00-${endHour.toString().padStart(2, '0')}:59`;
+		}
+		// 添加样式
+		const styleEl = document.createElement('style');
+		styleEl.textContent = `
+			.four-pillars-container {
+				margin: 10px 0;
 			}
-		}
-		
-		// 检查日柱和时柱的关系
-		if (pillars["日"].天干 && pillars["时"].天干 && pillars["时"].地支) {
-			const dayGanIndex = 天干.indexOf(pillars["日"].天干);
-			const hourGanIndex = 天干.indexOf(pillars["时"].天干);
-			const hourZhiIndex = 地支.indexOf(pillars["时"].地支);
-			
-			// 根据日干确定子时（第一个时辰）的天干
-			// 甲己日起甲子时，乙庚日起丙子时，丙辛日起戊子时，丁壬日起庚子时，戊癸日起壬子时
-			const baseHourGan = [0, 2, 4, 6, 8]; // 对应甲、丙、戊、庚、壬
-			const dayGanGroup = dayGanIndex % 5;
-			const startGan = baseHourGan[dayGanGroup];
-			
-			// 计算正确的时干索引
-			const correctHourGanIndex = (startGan + hourZhiIndex) % 10;
-			
-			if (hourGanIndex !== correctHourGanIndex) {
-				result.isValid = false;
-				if (!result.errorPillars.includes("时")) {
-					result.errorPillars.push("时");
-				}
-				result.errorDetails.push(`时柱：${pillars["时"].天干}${pillars["时"].地支} - 与日干${pillars["日"].天干}不匹配，应为${天干[correctHourGanIndex]}${pillars["时"].地支}`);
-			}
-		}
-		
-		// 生成详细错误信息
-		if (!result.isValid) {
-			if (result.errorDetails.length > 0) {
-				result.errorMessage = `四柱组合不符合传统历法规则：\n${result.errorDetails.join('\n')}`;
-			} else {
-				result.errorMessage = `四柱组合不符合传统历法规则，请检查${result.errorPillars.join("、")}柱。`;
-			}
-		}
-		
-		return result;
-	};
-	// 添加样式
-	const styleEl = document.createElement('style');
-	styleEl.textContent = `
-		.four-pillars-container {
-			margin: 10px 0;
-		}
-		.selector-container {
-			display: flex;
-			gap: 10px;
-			margin-bottom: 10px;
-			flex-wrap: wrap;
-			justify-content: center; /* 居中对齐 */
-		}
-		.pillar-container {
-			display: flex;
-			flex-direction: column;
-			align-items: center;
-			margin-bottom: 5px;
-			min-width: 60px; /* 确保最小宽度 */
-		}
-				/* 添加响应式设计 */
-		@media (max-width: 480px) {
 			.selector-container {
-				flex-direction: column;
-				align-items: center;
+				display: flex;
+				gap: 10px;
+				margin-bottom: 10px;
+				flex-wrap: wrap;
+				justify-content: center; /* 居中对齐 */
 			}
 			.pillar-container {
-				width: 100%;
-				max-width: 200px;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				margin-bottom: 5px;
+				min-width: 60px; /* 确保最小宽度 */
 			}
-		}
+					/* 添加响应式设计 */
+			@media (max-width: 480px) {
+				.selector-container {
+					flex-direction: column;
+					align-items: center;
+				}
+				.pillar-container {
+					width: 100%;
+					max-width: 200px;
+				}
+			}
 
-		.dropdown {
-			position: relative;
-			display: inline-block;
-			margin: 2px 0;
-			width: 100%; /* 使下拉框占满容器 */
-		}
-		.dropdown-button {
-			padding: 5px;
-			min-width: 40px;
-			text-align: center;
-			cursor: pointer;
-			background: var(--background-secondary);
-			border: 1px solid var(--background-modifier-border);
-			border-radius: 4px;
-			color: var(--text-normal);
-		}
-		.dropdown-content {
-			display: none;
-			position: absolute;
-			background-color: var(--background-primary);
-			min-width: 40px;
-			box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
-			z-index: 1000;
-			max-height: 200px;
-			overflow-y: auto;
-			border-radius: 4px;
-		}
-		.dropdown-content div {
-			padding: 8px;
-			text-align: center;
-			cursor: pointer;
-			color: var(--text-normal);
-		}
-		.dropdown-content div:hover {
-			background-color: var(--background-secondary);
-		}
-		.confirm-button {
-			margin-top: 10px;
-			padding: 8px 16px;
-			background: var(--interactive-accent);
-			color: var(--text-on-accent);
-			border: none;
-			border-radius: 4px;
-			cursor: pointer;
-		}
-		.result-container {
-			margin-top: 10px;
-			padding: 10px;
-			border: 1px solid var(--background-modifier-border);
-			border-radius: 4px;
-			background: var(--background-secondary);
-		}
-		.warning-message {
-			color: red;
-			padding: 10px;
-			margin-top: 5px;
-		}
-		.position-label {
-			font-weight: bold;
-			font-size: 1.2em;
-		}
-	`;
-	containerEl.appendChild(styleEl);
+			.dropdown {
+				position: relative;
+				display: inline-block;
+				margin: 2px 0;
+				width: 100%; /* 使下拉框占满容器 */
+			}
+			.dropdown-button {
+				padding: 5px;
+				min-width: 40px;
+				text-align: center;
+				cursor: pointer;
+				background: var(--background-secondary);
+				border: 1px solid var(--background-modifier-border);
+				border-radius: 4px;
+				color: var(--text-normal);
+			}
+			.dropdown-content {
+				display: none;
+				position: absolute;
+				background-color: var(--background-primary);
+				min-width: 40px;
+				box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+				z-index: 1000;
+				max-height: 200px;
+				overflow-y: auto;
+				border-radius: 4px;
+			}
+			.dropdown-content div {
+				padding: 8px;
+				text-align: center;
+				cursor: pointer;
+				color: var(--text-normal);
+			}
+			.dropdown-content div:hover {
+				background-color: var(--background-secondary);
+			}
+			.confirm-button {
+				margin-top: 10px;
+				padding: 8px 16px;
+				background: var(--interactive-accent);
+				color: var(--text-on-accent);
+				border: none;
+				border-radius: 4px;
+				cursor: pointer;
+			}
+			.result-container {
+				margin-top: 10px;
+				padding: 10px;
+				border: 1px solid var(--background-modifier-border);
+				border-radius: 4px;
+				background: var(--background-secondary);
+			}
+			.warning-message {
+				color: red;
+				padding: 10px;
+				margin-top: 5px;
+			}
+			.position-label {
+				font-weight: bold;
+				font-size: 1.2em;
+			}
+		`;
+		containerEl.appendChild(styleEl);
 
 	// 创建主容器
-	const mainContainer = containerEl.createEl('div', {
-		cls: 'four-pillars-container',
-		attr: { 'data-selector-id': selectorId }
-	});
-
-	// 创建选择器容器
-	const selectorContainer = mainContainer.createEl('div', {
-		cls: 'selector-container'
-	});
-
-	// 为每个位置创建选择器
-	positions.forEach(pos => {
-		const pillarContainer = selectorContainer.createEl('div', {
-			cls: 'pillar-container',
-			attr: { 'data-position': pos }
-		});
-		
-		pillarContainer.createEl('div', {
-			text: pos,
-			cls: 'position-label'
+		const mainContainer = containerEl.createEl('div', {
+			cls: 'four-pillars-container',
+			attr: { 'data-selector-id': selectorId }
 		});
 
-		const 天干Dropdown = pillarContainer.createEl('div', {
-			cls: 'dropdown'
-		});
-		const 天干Button = 天干Dropdown.createEl('div', {
-			text: '天干',
-			cls: 'dropdown-button 天干-button'
-		});
-		const 天干Content = 天干Dropdown.createEl('div', {
-			cls: 'dropdown-content'
+		// 创建选择器容器
+		const selectorContainer = mainContainer.createEl('div', {
+			cls: 'selector-container'
 		});
 
-		const 地支Dropdown = pillarContainer.createEl('div', {
-			cls: 'dropdown'
-		});
-		const 地支Button = 地支Dropdown.createEl('div', {
-			text: '地支',
-			cls: 'dropdown-button 地支-button'
-		});
-		const 地支Content = 地支Dropdown.createEl('div', {
-			cls: 'dropdown-content'
-		});
-
-		// 修改天干选择事件处理函数
-		天干.forEach(gan => {
-			const option = 天干Content.createEl('div', {
-				text: gan,
-				attr: {
-					style: `color: ${plugin.getGanZhiColor(gan)};`
-				}
+		// 为每个位置创建选择器
+		positions.forEach(pos => {
+			const pillarContainer = selectorContainer.createEl('div', {
+				cls: 'pillar-container',
+				attr: { 'data-position': pos }
 			});
-			option.addEventListener('click', () => {
-				天干Button.textContent = gan;
-				天干Button.style.color = plugin.getGanZhiColor(gan);
-				天干Content.style.display = 'none';
-				selections[pos]['天干'] = gan;
-				
-				// 清空地支下拉内容，重新填充
-				地支Content.empty();
-				
-				// 判断选择的天干是阴还是阳
-				const isYangGan = is阳干(gan);
-				
-				// 根据天干的阴阳筛选匹配的地支
-				地支.forEach(zhi => {
-					const isYangZhi = is阳支(zhi);
-					// 只显示匹配的地支: 阳干配阳支，阴干配阴支
-					if (isYangGan === isYangZhi) {
-						const zhiOption = 地支Content.createEl('div', {
-							text: zhi,
-							attr: {
-								style: `color: ${plugin.getGanZhiColor(zhi)};`
-							}
-						});
-						zhiOption.addEventListener('click', () => {
-							地支Button.textContent = zhi;
-							地支Button.style.color = plugin.getGanZhiColor(zhi);
-							地支Content.style.display = 'none';
-							selections[pos]['地支'] = zhi;
-							DataPersistence.saveAll(selections);
-							updateResult();
-						});
+			
+			pillarContainer.createEl('div', {
+				text: pos,
+				cls: 'position-label'
+			});
+
+			const 天干Dropdown = pillarContainer.createEl('div', {
+				cls: 'dropdown'
+			});
+			const 天干Button = 天干Dropdown.createEl('div', {
+				text: '天干',
+				cls: 'dropdown-button 天干-button'
+			});
+			const 天干Content = 天干Dropdown.createEl('div', {
+				cls: 'dropdown-content'
+			});
+
+			const 地支Dropdown = pillarContainer.createEl('div', {
+				cls: 'dropdown'
+			});
+			const 地支Button = 地支Dropdown.createEl('div', {
+				text: '地支',
+				cls: 'dropdown-button 地支-button'
+			});
+			const 地支Content = 地支Dropdown.createEl('div', {
+				cls: 'dropdown-content'
+			});
+
+			// 修改天干选择事件处理函数
+			天干.forEach(gan => {
+				const option = 天干Content.createEl('div', {
+					text: gan,
+					attr: {
+						style: `color: ${plugin.getGanZhiColor(gan)};`
 					}
 				});
-		
-				// 如果已经选择了不匹配的地支，清除它
-				if (selections[pos]['地支']) {
-					const 当前地支 = selections[pos]['地支'];
-					const 是阳干 = is阳干(gan);
-					const 是阳支 = is阳支(当前地支);
-					if (是阳干 !== 是阳支) {
-						地支Button.textContent = '地支';
-						地支Button.style.color = 'var(--text-normal)';
-						selections[pos]['地支'] = '';
+				option.addEventListener('click', () => {
+					天干Button.textContent = gan;
+					天干Button.style.color = plugin.getGanZhiColor(gan);
+					天干Content.style.display = 'none';
+					selections[pos]['天干'] = gan;
+					
+					// 清空地支下拉内容，重新填充
+					地支Content.empty();
+					
+					// 判断选择的天干是阴还是阳
+					const isYangGan = is阳干(gan);
+					
+					// 根据天干的阴阳筛选匹配的地支
+					地支.forEach(zhi => {
+						const isYangZhi = is阳支(zhi);
+						// 只显示匹配的地支: 阳干配阳支，阴干配阴支
+						if (isYangGan === isYangZhi) {
+							const zhiOption = 地支Content.createEl('div', {
+								text: zhi,
+								attr: {
+									style: `color: ${plugin.getGanZhiColor(zhi)};`
+								}
+							});
+							zhiOption.addEventListener('click', () => {
+								地支Button.textContent = zhi;
+								地支Button.style.color = plugin.getGanZhiColor(zhi);
+								地支Content.style.display = 'none';
+								selections[pos]['地支'] = zhi;
+								DataPersistence.saveAll(selections);
+								updateResult();
+							});
+						}
+					});
+			
+					// 如果已经选择了不匹配的地支，清除它
+					if (selections[pos]['地支']) {
+						const 当前地支 = selections[pos]['地支'];
+						const 是阳干 = is阳干(gan);
+						const 是阳支 = is阳支(当前地支);
+						if (是阳干 !== 是阳支) {
+							地支Button.textContent = '地支';
+							地支Button.style.color = 'var(--text-normal)';
+							selections[pos]['地支'] = '';
+						}
 					}
-				}
-				
-				DataPersistence.saveAll(selections);
-				updateResult();
+					
+					DataPersistence.saveAll(selections);
+					updateResult();
+				});
 			});
-		});
 
-		// 移除原有的地支选项填充代码（因为现在我们是根据所选天干动态填充）
-		/*
-		地支.forEach(zhi => {
-			const option = 地支Content.createEl('div', {
-				text: zhi,
-				attr: {
-					style: `color: ${plugin.getGanZhiColor(zhi)};`
-				}
+			// 移除原有的地支选项填充代码（因为现在我们是根据所选天干动态填充）
+			/*
+			地支.forEach(zhi => {
+				const option = 地支Content.createEl('div', {
+					text: zhi,
+					attr: {
+						style: `color: ${plugin.getGanZhiColor(zhi)};`
+					}
+				});
+				option.addEventListener('click', () => {
+					地支Button.textContent = zhi;
+					地支Button.style.color = plugin.getGanZhiColor(zhi);
+					地支Content.style.display = 'none';
+					selections[pos]['地支'] = zhi;
+					DataPersistence.saveAll(selections);
+					updateResult();
+				});
 			});
-			option.addEventListener('click', () => {
-				地支Button.textContent = zhi;
-				地支Button.style.color = plugin.getGanZhiColor(zhi);
-				地支Content.style.display = 'none';
-				selections[pos]['地支'] = zhi;
-				DataPersistence.saveAll(selections);
-				updateResult();
+			*/
+			天干Button.addEventListener('click', (e: MouseEvent) => {
+				e.stopPropagation();
+				(天干Content as HTMLElement).style.display = (天干Content as HTMLElement).style.display === 'block' ? 'none' : 'block';
+				document.querySelectorAll('.dropdown-content').forEach(content => {
+					if (content !== 天干Content) {
+						(content as HTMLElement).style.display = 'none';
+					}
+				});
 			});
-		});
-        */
-		天干Button.addEventListener('click', (e: MouseEvent) => {
-			e.stopPropagation();
-			(天干Content as HTMLElement).style.display = (天干Content as HTMLElement).style.display === 'block' ? 'none' : 'block';
-			document.querySelectorAll('.dropdown-content').forEach(content => {
-				if (content !== 天干Content) {
-					(content as HTMLElement).style.display = 'none';
-				}
-			});
-		});
 
-		地支Button.addEventListener('click', (e: MouseEvent) => {
-			e.stopPropagation();
-			(地支Content as HTMLElement).style.display = (地支Content as HTMLElement).style.display === 'block' ? 'none' : 'block';
-			document.querySelectorAll('.dropdown-content').forEach(content => {
-				if (content !== 地支Content) {
-					(content as HTMLElement).style.display = 'none';
-				}
+			地支Button.addEventListener('click', (e: MouseEvent) => {
+				e.stopPropagation();
+				(地支Content as HTMLElement).style.display = (地支Content as HTMLElement).style.display === 'block' ? 'none' : 'block';
+				document.querySelectorAll('.dropdown-content').forEach(content => {
+					if (content !== 地支Content) {
+						(content as HTMLElement).style.display = 'none';
+					}
+				});
 			});
 		});
-	});
 
 	// 点击外部区域关闭下拉菜单
 	document.addEventListener('click', () => {
@@ -959,7 +1200,7 @@ function createFourPillarsUI(containerEl: HTMLElement, app: App, plugin: FourPil
 				missingSelections.push(`${pos}柱地支`);
 			}
 		});
-	
+
 		if (missingSelections.length > 0) {
 			let warningDiv = mainContainer.querySelector('.warning-message') as HTMLElement;
 			if (!warningDiv) {
@@ -971,9 +1212,10 @@ function createFourPillarsUI(containerEl: HTMLElement, app: App, plugin: FourPil
 			warningDiv.innerHTML = `⚠️ 请补充选择：${missingSelections.join('、')}`;
 			return;
 		}
-	
-		// 添加四柱组合有效性验证
+		
+		// 使用基本验证规则检查阴阳搭配
 		const validationResult = validateFourPillars(selections);
+		
 		if (!validationResult.isValid) {
 			let warningDiv = mainContainer.querySelector('.warning-message') as HTMLElement;
 			if (!warningDiv) {
@@ -985,24 +1227,85 @@ function createFourPillarsUI(containerEl: HTMLElement, app: App, plugin: FourPil
 			warningDiv.innerHTML = `⚠️ ${validationResult.errorMessage}`;
 			return;
 		}
-	
-		const warningDiv = mainContainer.querySelector('.warning-message');
-		if (warningDiv) {
-			warningDiv.remove();
-		}
-	
-		updateResult();
-	
+		
+		// 如果基本验证通过，尝试查找公元日期
 		try {
-			// 只保存到localStorage
+			// 显示正在查找的提示
+			let warningDiv = mainContainer.querySelector('.warning-message') as HTMLElement;
+			if (!warningDiv) {
+				warningDiv = mainContainer.createEl('div', {
+					cls: 'warning-message'
+				});
+				resultContainer.after(warningDiv);
+			}
+			warningDiv.innerHTML = `正在查找匹配的公元日期，请稍候...`;
+			
+			// 等待一小段时间让UI更新
+			await new Promise(resolve => setTimeout(resolve, 50));
+			
+			// 使用高级验证函数查找日期
+			const dateResult = await validateAndFindDate(selections);
+			
+			// 清除提示
+			if (warningDiv) {
+				warningDiv.remove();
+			}
+			
+			if (!dateResult.isValid) {
+				// 如果验证失败，显示错误信息
+				let errorDiv = mainContainer.querySelector('.warning-message') as HTMLElement;
+				if (!errorDiv) {
+					errorDiv = mainContainer.createEl('div', {
+						cls: 'warning-message'
+					});
+					resultContainer.after(errorDiv);
+				}
+				errorDiv.innerHTML = `⚠️ ${dateResult.errorMessage}`;
+				return;
+			}
+			
+			// 更新四柱结果
+			updateResult();
+			
+			// 如果有找到匹配的公元日期，显示出来
+			if (dateResult.gregorianDate) {
+				const { year, month, day, hourRange } = dateResult.gregorianDate;
+				
+				// 创建或更新日期信息显示区域
+				let dateInfoDiv = mainContainer.querySelector('.date-info') as HTMLElement;
+				if (!dateInfoDiv) {
+					dateInfoDiv = mainContainer.createEl('div', {
+						cls: 'date-info'
+					});
+					resultContainer.after(dateInfoDiv);
+				}
+				
+				dateInfoDiv.textContent = `公元：${year}年${month}月${day}日 ${hourRange || ''}`;
+				dateInfoDiv.style.marginTop = '10px';
+				dateInfoDiv.style.padding = '5px';
+				dateInfoDiv.style.textAlign = 'center';
+				dateInfoDiv.style.fontWeight = 'bold';
+			}
+			
+			// 保存数据
 			DataPersistence.saveToLocalStorage(selections);
 			DataPersistence.saveToHiddenDiv(containerEl, selections);
-			// 临时禁用保存到frontmatter
-			// await DataPersistence.saveToFrontmatter(selections); 
+			
 			new Notice('四柱数据已保存');
 		} catch (error) {
-			console.error('保存失败:', error);
-			new Notice('保存失败，请查看控制台了解详情');
+			console.error('保存或查找日期失败:', error);
+			
+			// 显示错误信息
+			let errorDiv = mainContainer.querySelector('.warning-message') as HTMLElement;
+			if (!errorDiv) {
+				errorDiv = mainContainer.createEl('div', {
+					cls: 'warning-message'
+				});
+				resultContainer.after(errorDiv);
+			}
+			errorDiv.innerHTML = `⚠️ 保存或查找日期失败: ${error.message}`;
+			
+			new Notice('处理失败，请查看控制台了解详情');
 		}
 	});
 

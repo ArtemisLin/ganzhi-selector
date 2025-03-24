@@ -1,8 +1,32 @@
-/*
+.date-info {
+    margin-top: 10px;
+    padding: 10px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px;
+    background: var(--background-secondary-alt);
+    text-align: center;
+    font-weight: bold;
+}
 
-This CSS file will be included with your plugin, and
-available in the app when your plugin is enabled.
+.warning-message {
+    color: red;
+    padding: 10px;
+    margin-top: 5px;
+    white-space: pre-line; /* 允许换行符生效 */
+}
 
-If your plugin does not need CSS, delete this file.
+.ganzhi-loading {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(0, 0, 0, 0.3);
+    border-radius: 50%;
+    border-top-color: var(--text-accent);
+    animation: spin 1s ease-in-out infinite;
+    margin-right: 10px;
+    vertical-align: middle;
+}
 
-*/
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
