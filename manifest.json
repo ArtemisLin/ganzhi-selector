@@ -1,11 +1,9 @@
 {
-	"id": "sample-plugin",
-	"name": "Sample Plugin",
+	"id": "four-pillars-selector",
+	"name": "Four Pillars Selector",
 	"version": "1.0.0",
 	"minAppVersion": "0.15.0",
-	"description": "Demonstrates some of the capabilities of the Obsidian API.",
-	"author": "Obsidian",
-	"authorUrl": "https://obsidian.md",
-	"fundingUrl": "https://obsidian.md/pricing",
+	"description": "A plugin for selecting Four Pillars (BaZi) components in Chinese astrology",
+	"author": "ArtemisLin",
 	"isDesktopOnly": false
-}
+  }
